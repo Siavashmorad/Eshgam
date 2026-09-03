@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 /// Local LAN peer transport used when the international Internet/relay is
 /// unavailable. It never handles plaintext; callers send encrypted payloads.
@@ -18,13 +17,7 @@ class LocalPeer {
   bool _running = false;
   int _port = 0;
 
-  LocalPeer({
-    required this.pairId,
-    required this.deviceId,
-    required this.secretHash,
-    required this.onMessage,
-  });
-
+  LocalPeer({required this.pairId, required this.deviceId, required this.secretHash, required this.onMessage});
   bool get connected => _socket != null;
 
   Future<void> start() async {
@@ -33,9 +26,7 @@ class LocalPeer {
     _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     _port = _server!.port;
     _server!.listen(_handleRequest);
-
-    _udp = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 40411,
-        reuseAddress: true, reusePort: true);
+    _udp = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 40411, reuseAddress: true, reusePort: true);
     _udp!.broadcastEnabled = true;
     _udp!.listen(_handleDatagram);
     _announceTimer = Timer.periodic(const Duration(seconds: 2), (_) => _announce());
@@ -45,16 +36,8 @@ class LocalPeer {
   void _announce() {
     final socket = _udp;
     if (socket == null) return;
-    final packet = utf8.encode(jsonEncode({
-      'app': 'eshgam-lan-v1',
-      'pair': pairId,
-      'device': deviceId,
-      'hash': secretHash,
-      'port': _port,
-    }));
-    try {
-      socket.send(packet, InternetAddress('255.255.255.255'), 40411);
-    } catch (_) {}
+    final packet = utf8.encode(jsonEncode({'app': 'eshgam-lan-v1', 'pair': pairId, 'device': deviceId, 'hash': secretHash, 'port': _port}));
+    try { socket.send(packet, InternetAddress('255.255.255.255'), 40411); } catch (_) {}
   }
 
   void _handleDatagram(RawSocketEvent event) {
@@ -65,27 +48,19 @@ class LocalPeer {
     while ((datagram = socket.receive()) != null) {
       try {
         final data = jsonDecode(utf8.decode(datagram!.data)) as Map<String, dynamic>;
-        if (data['app'] != 'eshgam-lan-v1' ||
-            data['pair'] != pairId ||
-            data['hash'] != secretHash ||
-            data['device'] == deviceId) {
-          continue;
-        }
+        if (data['app'] != 'eshgam-lan-v1' || data['pair'] != pairId || data['hash'] != secretHash || data['device'] == deviceId) continue;
         final remoteDevice = data['device'] as String;
-        // Deterministic tie-break prevents both devices opening connections.
         if (deviceId.compareTo(remoteDevice) <= 0 || connected) continue;
         final port = (data['port'] as num).toInt();
-        _connect(datagram.address.address, port, remoteDevice);
+        _connect(datagram.address.address, port);
       } catch (_) {}
     }
   }
 
-  Future<void> _connect(String host, int port, String remoteDevice) async {
+  Future<void> _connect(String host, int port) async {
     if (connected || !_running) return;
     try {
-      final ws = await WebSocket.connect(
-        'ws://$host:$port/?pair=${Uri.encodeComponent(pairId)}&device=${Uri.encodeComponent(deviceId)}&hash=${Uri.encodeComponent(secretHash)}',
-      ).timeout(const Duration(seconds: 4));
+      final ws = await WebSocket.connect('ws://$host:$port/?pair=${Uri.encodeComponent(pairId)}&device=${Uri.encodeComponent(deviceId)}&hash=${Uri.encodeComponent(secretHash)}').timeout(const Duration(seconds: 4));
       _attach(ws);
     } catch (_) {}
   }
@@ -110,18 +85,14 @@ class LocalPeer {
     }
     try {
       final ws = await WebSocketTransformer.upgrade(request);
-      if (!connected) _attach(ws);
-      else await ws.close();
+      if (!connected) { _attach(ws); } else { await ws.close(); }
     } catch (_) {
       try { await request.response.close(); } catch (_) {}
     }
   }
 
   void _attach(WebSocket ws) {
-    if (_socket != null) {
-      ws.close();
-      return;
-    }
+    if (_socket != null) { ws.close(); return; }
     _socket = ws;
     ws.listen((raw) {
       try {
@@ -144,7 +115,7 @@ class LocalPeer {
     _announceTimer = null;
     try { await _socket?.close(); } catch (_) {}
     _socket = null;
-    try { await _udp?.close(); } catch (_) {}
+    _udp?.close();
     _udp = null;
     try { await _server?.close(force: true); } catch (_) {}
     _server = null;
