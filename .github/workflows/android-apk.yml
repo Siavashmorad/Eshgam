@@ -28,15 +28,23 @@ jobs:
           rm -rf test
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('android/app/build.gradle.kts')
           s = p.read_text()
-          if 'isCoreLibraryDesugaringEnabled = true' not in s:
-              s = s.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true')
-          if 'coreLibraryDesugaring(' not in s:
-              marker = 'dependencies {'
-              dep = 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")'
-              s = s.replace(marker, dep, 1)
+          s = s.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1) if 'isCoreLibraryDesugaringEnabled = true' not in s else s
+          if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' not in s:
+              m = re.search(r'(?m)^dependencies\\s*\\{', s)
+              if not m:
+                  raise SystemExit('No dependencies block found in android/app/build.gradle.kts')
+              insert_at = m.end()
+              s = s[:insert_at] + '\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' + s[insert_at:]
           p.write_text(s)
+          print('--- android/app/build.gradle.kts ---')
+          print(s)
+          print('--- desugaring check ---')
+          assert 'isCoreLibraryDesugaringEnabled = true' in s
+          assert 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' in s
+          print('DESUGARING_CONFIG_OK')
           PY
       - name: Get dependencies
         run: flutter pub get
