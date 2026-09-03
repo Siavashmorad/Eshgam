@@ -1,0 +1,1 @@
+{"name":"eshgam-relay","private":true,"version":"1.0.0","type":"module","scripts":{"start":"node index.js"},"dependencies":{"express":"^5.1.0","ws":"^8.18.3","cors":"^2.8.5","multer":"^2.0.2"}}
