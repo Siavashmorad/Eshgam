@@ -58,6 +58,22 @@ jobs:
           print('DESUGARING_CONFIG_OK')
           PY
 
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          if 'android.permission.INTERNET' not in s:
+              s = s.replace('<manifest ', '<manifest ', 1)
+              s = s.replace('>\n', '>\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n', 1)
+          s = s.replace('<application ', '<application android:usesCleartextTraffic="true" ', 1) if 'android:usesCleartextTraffic=' not in s else s
+          p.write_text(s)
+          print('LOCAL_NETWORK_MANIFEST_OK')
+          PY
+
+      - name: Enable local offline/LAN mode
+        run: python3 tool/enable_local_mode.py
+
       - name: Get dependencies
         run: flutter pub get
 
