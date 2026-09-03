@@ -23,10 +23,21 @@ jobs:
           cache: true
       - name: Generate Android project files
         run: flutter create --platforms=android --org ir.eshgam .
-      - name: Apply build compatibility fixes
+      - name: Apply Android build fixes
         run: |
           rm -rf test
-          if ! tail -n 5 lib/main.dart | grep -q '^}$'; then printf '\n}\n' >> lib/main.dart; fi
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text()
+          if 'isCoreLibraryDesugaringEnabled = true' not in s:
+              s = s.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true')
+          if 'coreLibraryDesugaring(' not in s:
+              marker = 'dependencies {'
+              dep = 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")'
+              s = s.replace(marker, dep, 1)
+          p.write_text(s)
+          PY
       - name: Get dependencies
         run: flutter pub get
       - name: Analyze
